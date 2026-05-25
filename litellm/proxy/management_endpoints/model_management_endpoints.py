@@ -531,9 +531,7 @@ async def _update_model_in_config(
 
     if model_params.litellm_params is not None:
         existing_lp = entry.get("litellm_params", {})
-        existing_lp.update(
-            model_params.litellm_params.model_dump(exclude_none=True)
-        )
+        existing_lp.update(model_params.litellm_params.model_dump(exclude_none=True))
         entry["litellm_params"] = existing_lp
 
     if model_params.model_info is not None:
@@ -553,6 +551,39 @@ async def _update_model_in_config(
         llm_router.upsert_deployment(deployment=deployment)
 
     return entry
+
+
+async def _update_model_endpoint_config_only(
+    model_id: str,
+    model_params: updateDeployment,
+    user_api_key_dict: UserAPIKeyAuth,
+    proxy_config: Any,
+    llm_router: Any,
+) -> dict:
+    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "Only proxy admins can manage models in config-only mode."
+            },
+        )
+
+    async with _config_write_lock:
+        updated = await _update_model_in_config(
+            model_id=model_id,
+            model_params=model_params,
+            user_api_key_dict=user_api_key_dict,
+            proxy_config=proxy_config,
+            llm_router=llm_router,
+        )
+
+    if updated is None:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": f"Model with id={model_id} not found in config"},
+        )
+
+    return updated
 
 
 async def _update_team_model_in_db(
@@ -993,9 +1024,7 @@ async def delete_model(
             if result is None:
                 raise HTTPException(
                     status_code=400,
-                    detail={
-                        "error": f"Model with id={model_info.id} not found in db"
-                    },
+                    detail={"error": f"Model with id={model_info.id} not found in db"},
                 )
 
             ## DELETE FROM ROUTER ##
@@ -1177,9 +1206,7 @@ async def add_new_model(
                 )
             # Team-scoped models require the DB for team management.
             if (
-                getattr(
-                    getattr(model_params, "model_info", None), "team_id", None
-                )
+                getattr(getattr(model_params, "model_info", None), "team_id", None)
                 is not None
             ):
                 raise HTTPException(
@@ -1418,30 +1445,13 @@ async def update_model(
 
             return model_response
         else:
-            # --- Config-only code path ---
-            if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
-                raise HTTPException(
-                    status_code=403,
-                    detail={
-                        "error": "Only proxy admins can manage models in config-only mode."
-                    },
-                )
-            async with _config_write_lock:
-                updated = await _update_model_in_config(
-                    model_id=_model_id,
-                    model_params=model_params,
-                    user_api_key_dict=user_api_key_dict,
-                    proxy_config=proxy_config,
-                    llm_router=llm_router,
-                )
-            if updated is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "error": f"Model with id={_model_id} not found in config"
-                    },
-                )
-            return updated
+            return await _update_model_endpoint_config_only(
+                model_id=_model_id,
+                model_params=model_params,
+                user_api_key_dict=user_api_key_dict,
+                proxy_config=proxy_config,
+                llm_router=llm_router,
+            )
     except Exception as e:
         verbose_proxy_logger.exception(
             "litellm.proxy.proxy_server.update_model(): Exception occured - {}".format(

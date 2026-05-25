@@ -5,7 +5,6 @@ from typing import Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
 from litellm._uuid import uuid
 
@@ -25,7 +24,6 @@ from litellm.proxy.management_endpoints.model_management_endpoints import (
     _get_team_deployments,
     clear_cache,
 )
-from litellm.proxy.utils import PrismaClient
 from litellm.types.router import Deployment, LiteLLM_Params, updateDeployment
 
 
@@ -279,7 +277,6 @@ class MockPrismaDB:
         self.update_calls = []
 
     async def find_many(self, include=None):
-        print(f"self.model_aliases_list: {self.model_aliases_list}")
         return [LiteLLM_ModelTable(**aliases) for aliases in self.model_aliases_list]
 
     async def update(self, where, data):
@@ -1619,6 +1616,7 @@ class TestPatchModelBlockedAuthGate:
             assert result is updated_row
             mock_prisma.db.litellm_proxymodeltable.update.assert_awaited_once()
 
+
 ################################################################################
 # Config-Only Model Management Tests
 ################################################################################
@@ -1685,18 +1683,14 @@ class TestConfigOnlyAddModel:
             litellm_params=LiteLLM_Params(model="openai/gpt-4"),
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", None), patch(
-            "litellm.proxy.proxy_server.store_model_in_db", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_config", mock_proxy_config
-        ), patch(
-            "litellm.proxy.proxy_server.llm_router", mock_router
-        ), patch(
-            "litellm.proxy.proxy_server.general_settings", {}
-        ), patch(
-            "litellm.proxy.proxy_server.premium_user", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()
+        with (
+            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("litellm.proxy.proxy_server.store_model_in_db", False),
+            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("litellm.proxy.proxy_server.llm_router", mock_router),
+            patch("litellm.proxy.proxy_server.general_settings", {}),
+            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         ):
             result = await add_new_model(
                 model_params=model,
@@ -1733,18 +1727,14 @@ class TestConfigOnlyAddModel:
             model_info={"team_id": "team-123"},
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", None), patch(
-            "litellm.proxy.proxy_server.store_model_in_db", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_config", mock_proxy_config
-        ), patch(
-            "litellm.proxy.proxy_server.llm_router", mock_router
-        ), patch(
-            "litellm.proxy.proxy_server.general_settings", {}
-        ), patch(
-            "litellm.proxy.proxy_server.premium_user", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()
+        with (
+            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("litellm.proxy.proxy_server.store_model_in_db", False),
+            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("litellm.proxy.proxy_server.llm_router", mock_router),
+            patch("litellm.proxy.proxy_server.general_settings", {}),
+            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         ):
             from litellm.proxy._types import ProxyException
 
@@ -1818,14 +1808,12 @@ class TestConfigOnlyDeleteModel:
             user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", None), patch(
-            "litellm.proxy.proxy_server.store_model_in_db", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_config", mock_proxy_config
-        ), patch(
-            "litellm.proxy.proxy_server.llm_router", mock_router
-        ), patch(
-            "litellm.proxy.proxy_server.premium_user", False
+        with (
+            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("litellm.proxy.proxy_server.store_model_in_db", False),
+            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("litellm.proxy.proxy_server.llm_router", mock_router),
+            patch("litellm.proxy.proxy_server.premium_user", False),
         ):
             result = await delete_model(
                 model_info=ModelInfoDelete(id=model_id),
@@ -1854,14 +1842,12 @@ class TestConfigOnlyDeleteModel:
             user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", None), patch(
-            "litellm.proxy.proxy_server.store_model_in_db", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_config", mock_proxy_config
-        ), patch(
-            "litellm.proxy.proxy_server.llm_router", mock_router
-        ), patch(
-            "litellm.proxy.proxy_server.premium_user", False
+        with (
+            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("litellm.proxy.proxy_server.store_model_in_db", False),
+            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("litellm.proxy.proxy_server.llm_router", mock_router),
+            patch("litellm.proxy.proxy_server.premium_user", False),
         ):
             from litellm.proxy._types import ProxyException
 
@@ -1909,16 +1895,13 @@ class TestConfigOnlyUpdateModel:
             model_info=ModelInfo(id=model_id),
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", None), patch(
-            "litellm.proxy.proxy_server.store_model_in_db", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_config", mock_proxy_config
-        ), patch(
-            "litellm.proxy.proxy_server.llm_router", mock_router
-        ), patch(
-            "litellm.proxy.proxy_server.premium_user", False
-        ), patch(
-            "litellm.proxy.proxy_server.LITELLM_PROXY_ADMIN_NAME", "admin"
+        with (
+            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("litellm.proxy.proxy_server.store_model_in_db", False),
+            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("litellm.proxy.proxy_server.llm_router", mock_router),
+            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("litellm.proxy.proxy_server.LITELLM_PROXY_ADMIN_NAME", "admin"),
         ):
             result = await update_model(
                 model_params=update_params,
@@ -1956,16 +1939,13 @@ class TestConfigOnlyUpdateModel:
             model_info=ModelInfo(id="nonexistent"),
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", None), patch(
-            "litellm.proxy.proxy_server.store_model_in_db", False
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_config", mock_proxy_config
-        ), patch(
-            "litellm.proxy.proxy_server.llm_router", mock_router
-        ), patch(
-            "litellm.proxy.proxy_server.premium_user", False
-        ), patch(
-            "litellm.proxy.proxy_server.LITELLM_PROXY_ADMIN_NAME", "admin"
+        with (
+            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("litellm.proxy.proxy_server.store_model_in_db", False),
+            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("litellm.proxy.proxy_server.llm_router", mock_router),
+            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("litellm.proxy.proxy_server.LITELLM_PROXY_ADMIN_NAME", "admin"),
         ):
             from litellm.proxy._types import ProxyException
 
@@ -2013,21 +1993,18 @@ class TestDBModeUnaffected:
             litellm_params=LiteLLM_Params(model="openai/gpt-4"),
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma), patch(
-            "litellm.proxy.proxy_server.store_model_in_db", True
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_config", mock_proxy_config
-        ), patch(
-            "litellm.proxy.proxy_server.llm_router", MagicMock()
-        ), patch(
-            "litellm.proxy.proxy_server.general_settings", {}
-        ), patch(
-            "litellm.proxy.proxy_server.premium_user", True
-        ), patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", mock_logging
-        ), patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.encrypt_value_helper",
-            side_effect=lambda value, new_encryption_key=None: value,
+        with (
+            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("litellm.proxy.proxy_server.general_settings", {}),
+            patch("litellm.proxy.proxy_server.premium_user", True),
+            patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_logging),
+            patch(
+                "litellm.proxy.management_endpoints.model_management_endpoints.encrypt_value_helper",
+                side_effect=lambda value, new_encryption_key=None: value,
+            ),
         ):
             result = await add_new_model(
                 model_params=model,
@@ -2035,6 +2012,7 @@ class TestDBModeUnaffected:
             )
 
         # DB create was called
+        assert result is mock_model_response
         mock_prisma.db.litellm_proxymodeltable.create.assert_called_once()
         # proxy_config.add_deployment was called (DB reload path)
         mock_proxy_config.add_deployment.assert_called_once()
