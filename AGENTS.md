@@ -1,293 +1,132 @@
-# INSTRUCTIONS FOR LITELLM
-
-This document provides comprehensive instructions for AI agents working in the LiteLLM repository.
-
-## OVERVIEW
-
-LiteLLM is a unified interface for 100+ LLMs that:
-- Translates inputs to provider-specific completion, embedding, and image generation endpoints
-- Provides consistent OpenAI-format output across all providers
-- Includes retry/fallback logic across multiple deployments (Router)
-- Offers a proxy server (LLM Gateway) with budgets, rate limits, and authentication
-- Supports advanced features like function calling, streaming, caching, and observability
-
-## REPOSITORY STRUCTURE
-
-### Core Components
-- `litellm/` - Main library code
-  - `llms/` - Provider-specific implementations (OpenAI, Anthropic, Azure, etc.)
-  - `proxy/` - Proxy server implementation (LLM Gateway)
-  - `router_utils/` - Load balancing and fallback logic
-  - `types/` - Type definitions and schemas
-  - `integrations/` - Third-party integrations (observability, caching, etc.)
-
-### Key Directories
-- `tests/` - Comprehensive test suites
-- `ui/litellm-dashboard/` - Admin dashboard UI
-- `enterprise/` - Enterprise-specific features
-
-Documentation lives in the separate [BerriAI/litellm-docs](https://github.com/BerriAI/litellm-docs) repository and is served at [docs.litellm.ai](https://docs.litellm.ai).
-
-## DEVELOPMENT GUIDELINES
-
-### MAKING CODE CHANGES
-
-1. **Provider Implementations**: When adding/modifying LLM providers:
-   - Follow existing patterns in `litellm/llms/{provider}/`
-   - Implement proper transformation classes that inherit from `BaseConfig`
-   - Support both sync and async operations
-   - Handle streaming responses appropriately
-   - Include proper error handling with provider-specific exceptions
-
-2. **Type Safety**: 
-   - Use proper type hints throughout
-   - Update type definitions in `litellm/types/`
-   - Ensure compatibility with both Pydantic v1 and v2
-
-3. **Testing**:
-   - Add tests in appropriate `tests/` subdirectories
-   - Include both unit tests and integration tests
-   - Test provider-specific functionality thoroughly
-   - Consider adding load tests for performance-critical changes
-
-### MAKING CODE CHANGES FOR THE UI (IGNORE FOR BACKEND)
-
-1. **Always use `antd` for new UI components — Tremor is DEPRECATED**
-   - We are migrating off of `@tremor/react`. Do not introduce new `Badge`, `Text`, `Card`, `Grid`, `Title`, or other imports from `@tremor/react` in any new or modified file.
-   - Use `antd` equivalents: `Tag` for labels, plain `<span>`/`<div>` with Tailwind classes (or `Typography.Text`) for text, `Card` from `antd`, etc. Note that `antd` has no `"yellow"` Tag color — use `"gold"` for amber/yellow.
-   - The only exception is the Tremor Table component and its required Tremor Table sub components.
-
-2. **Use Common Components as much as possible**:
-   - These are usually defined in the `common_components` directory
-   - Use these components as much as possible and avoid building new components unless needed
-
-3. **Testing**:
-   - The codebase uses **Vitest** and **React Testing Library**
-   - **Query Priority Order**: Use query methods in this order: `getByRole`, `getByLabelText`, `getByPlaceholderText`, `getByText`, `getByTestId`
-   - **Always use `screen`** instead of destructuring from `render()` (e.g., use `screen.getByText()` not `getByText`)
-   - **Wrap user interactions in `act()`**: Always wrap `fireEvent` calls with `act()` to ensure React state updates are properly handled
-   - **Use `query` methods for absence checks**: Use `queryBy*` methods (not `getBy*`) when expecting an element to NOT be present
-   - **Test names must start with "should"**: All test names should follow the pattern `it("should ...")`
-   - **Mock external dependencies**: Check `setupTests.ts` for global mocks and mock child components/networking calls as needed
-   - **Structure tests properly**:
-     - First test should verify the component renders successfully
-     - Subsequent tests should focus on functionality and user interactions
-     - Use `waitFor` for async operations that aren't already awaited
-   - **Avoid using `querySelector`**: Prefer React Testing Library queries over direct DOM manipulation
+Do not write comments unless they are any of:
+- absolutely necessary to explain some very complex business logic (in which case, keep it concise and clear)
+- used as an input for tools to read and act on. For example:
+  - entries in `.git-blame-ignore-revs` saying which commit is excluded from git blame
+  - a lint or type checker suppression like `# mutable-ok` or `# pyright: ignore[reportArgumentType]  # <reason>` when introducing a truly unavoidable violation
+- a TODO or FIXME
+  - Not great to have those, but if it's unavoidable, make sure to include a strong, concise reason for why it's there or, better yet, link to a GitHub issue for the follow-up work
 
-### IMPORTANT PATTERNS
+Explanation: The point of this rule is to keep out AI slop comments. AI writes way too many and way too verbose comments. Code comments are, in a way, a violation of DRY code. You must update logic in two locations to change the code, and "hard to change" is literally the definition of tech debt. We should instead aim to write code that is intuitive and clear, even at a glance, to the reader, being both easy to maintain and high performance
 
-1. **Function/Tool Calling**:
-   - LiteLLM standardizes tool calling across providers
-   - OpenAI format is the standard, with transformations for other providers
-   - See `litellm/llms/anthropic/chat/transformation.py` for complex tool handling
-
-2. **Streaming**:
-   - All providers should support streaming where possible
-   - Use consistent chunk formatting across providers
-   - Handle both sync and async streaming
+Don't assume that the existing code is correct or the right way of doing things / good coding patterns. In fact, there are a lot of bad coding practices, overly complex code, code smells, etc. If something doesn't look right, speak up. Feel free to break existing patterns or question weird existing code to make new code high quality, as in:
 
-3. **Error Handling**:
-   - Use provider-specific exception classes
-   - Maintain consistent error formats across providers
-   - Include proper retry logic and fallback mechanisms
-
-4. **Configuration**:
-   - Support both environment variables and programmatic configuration
-   - Use `BaseConfig` classes for provider configurations
-   - Allow dynamic parameter passing
-
-## PROXY SERVER (LLM GATEWAY)
-
-The proxy server is a critical component that provides:
-- Authentication and authorization
-- Rate limiting and budget management
-- Load balancing across multiple models/deployments
-- Observability and logging
-- Admin dashboard UI
-- Enterprise features
+- correct
+- secure
+- performant
+- readable
+- easy to maintain/change
+- modern
 
-Key files:
-- `litellm/proxy/proxy_server.py` - Main server implementation
-- `litellm/proxy/auth/` - Authentication logic
-- `litellm/proxy/management_endpoints/` - Admin API endpoints
-
-**Database (proxy)**: Use Prisma model methods (`prisma_client.db.<model>.upsert`, `.find_many`, `.find_unique`, etc.), not raw SQL (`execute_raw`/`query_raw`). See COMMON PITFALLS for details.
+In descending order of importance
 
-## MCP (MODEL CONTEXT PROTOCOL) SUPPORT
+When adding new features, add meaningful tests. Don't add tests that don't check anything substantial and is there just to make the code coverage pass. Yes, code coverage is important, but I'd rather have no signal whether the code is working than tests that don't fail when code is broken. The goal is to have tests that would fail before the feature was added/if the code was mutated in a way that breaks the feature and succeed only when the feature is fully working. I should run mutation testing and see > 90% kill rate
 
-LiteLLM supports MCP for agent workflows:
-- MCP server integration for tool calling
-- Transformation between OpenAI and MCP tool formats
-- Support for external MCP servers (Zapier, Jira, Linear, etc.)
-- See `litellm/experimental_mcp_client/` and `litellm/proxy/_experimental/mcp_server/`
+Same thing for bug fixes. The tests should make it so that this specific bug can never happen again without failing tests (i.e., regression)
 
-## RUNNING SCRIPTS
+Never test structure of code only function of it
 
-Use `uv run python script.py` to run Python scripts in the project environment (for non-test files).
+A test must only fail when litellm code changes. Never pin facts we don't own (a vendor's price, a third party's field, an upstream default, today's date) as literals or as "X must be absent"; assert the invariant our code guarantees instead, e.g. two rows agree, a value is within range, a field is derived from another. If an outside fact is truly load-bearing, cite its source and date next to the assertion so a reader can tell stale from broken
 
-## GITHUB TEMPLATES
+`tests/unit/` mirrors `litellm/` in a parallel path (see `tests/unit/AGENTS.md`). Name tests `test_<filename>.py`, but always match the existing test file in the directory you touch — many provider dirs use longer descriptive names (e.g. `test_anthropic_chat_transformation.py`) to avoid ambiguity across sibling folders. For bug fixes, extend the existing mapped test file rather than creating a new one. Only create a new test file for a new feature (provider, endpoint, or transformation module) that has no mapped test yet, following that directory's naming convention (or `test_<filename>.py` if you're the first test there). One focused regression test beats many shallow ones
 
-When opening issues or pull requests, follow these templates:
+End-to-end tests belong in `tests/e2e/` and must follow the harness conventions documented in that directory's `AGENTS.md`
 
-### Bug Reports (`.github/ISSUE_TEMPLATE/bug_report.yml`)
-- Describe what happened vs. expected behavior
-- Include relevant log output
-- Specify LiteLLM version
-- Indicate if you're part of an ML Ops team (helps with prioritization)
+When creating PRs, target the repository's current default branch for both internal and external / OSS contributions. Check it with `python3 scripts/default_branch.py --branch` instead of assuming a branch name or relying on cached `origin/HEAD`
 
-### Feature Requests (`.github/ISSUE_TEMPLATE/feature_request.yml`)
-- Clearly describe the feature
-- Explain motivation and use case with concrete examples
+When writing a PR body, treat the comments and imperative instructions inside .github/pull_request_template.md as rules to follow, not just layout. Agent harnesses may strip HTML comments from copies of that file injected into context, so read .github/pull_request_template.md from disk before writing a PR body to make sure you see every comment rule. A section you have nothing to put in (Relevant issues, Affected release, Linear ticket, Caveats, QA runbook, and so on) is removed entirely, heading included, never left as an empty title
 
-### Pull Requests (`.github/pull_request_template.md`)
-- Add at least 1 test in `tests/litellm/`
-- Ensure `make test-unit` passes
+Same applies for filing bug reports and feature requests, with .github/ISSUE_TEMPLATE/bug_report.yml and .github/ISSUE_TEMPLATE/feature_request.yml, respectively
 
+If you're resolving a linear ticket, in the "## Linear ticket" section of the PR, say "Resolves LIT-1234", replacing "LIT-1234" with the actual ticket id that you're resolving. If you don't have the ticket id, don't make one up or search for it. Just drop the section
 
-## TESTING CONSIDERATIONS
+Never use `pytest` commands or the like as "Screenshots / Proof of Fix". We prefer curl'ing a live proxy instance running on localhost:4000 (I like to run it with `python litellm/proxy/proxy_cli.py --config litellm/proxy/dev_config.yaml --detailed_debug --reload --use_v2_migration_resolver 2>&1 | tee litellm.log`; the Admin UI dev server is `npm run dev` in `ui/litellm-dashboard`, served on port 3000) and showing both the command run and the output. Also, it should hit real LLM provider APIs, not mocks, and cost real $$$ because that is the most realistic test. The proof of fix should be exactly what the end user / customer would see / do. The run logs in PR #27703 is a prime example of how to do it (not a huge fan of using a python test script that future me and the team will have no visibility into; I prefer just curl commands or a short list of bash commands (e.g., using `for`)). If it's a UI thing, or the main use case runs through a headful agentic coding tool like Claude Code or Codex, drive that surface yourself and embed your own before and after screenshots of it in the PR (the Admin UI page, or what the coding tool shows), next to an ordered list of the URLs to go to (e.g., http://localhost:4000/ui/?page=logs), where to click, and what fields to fill out so a reviewer can reproduce it
 
-1. **Provider Tests**: Test against real provider APIs when possible
-2. **Proxy Tests**: Include authentication, rate limiting, and routing tests
-3. **Performance Tests**: Load testing for high-throughput scenarios
-4. **Integration Tests**: End-to-end workflows including tool calling
+If you ever write any human-facing text (pull requests, issues, commit messages, discussion posts, github comments, release notes, docs, etc.), always follow these guidelines to sound less AI-y:
+- don't use emojis
+- don't use "—". Instead, reach for ",", ".", conjunction words, ":", ";", etc. in descending order of preference: vary among them, weighted toward the front of the list, and skip "," where it would cause a comma splice or the sentence is getting long. Overusing any one of them, ";" especially, also feels AI-y. A word cap does not penalize you for adding more sentences: when writing under tight word budgets, prefer a period split or a conjunction over ";", and keep to at most one ";" per message
+- don't use the pattern "It's not X, it's Y", "You're not X, you're Y", etc.
+- unless explicitly asked, don't use bulleted or numbered lists unless it would be nonsensical not to. Instead, prefer prose
+- don't add a trailing "." at the end of paragraphs (just like this file). That means every paragraph, not just the last one (of the markdown file, PR description, GitHub comment, etc.). Rule of thumb: if you're adding new line(s) before the next sentence, don't add a "."
+- don't use →. Instead, prefer not to use arrows, and if need be, use -> instead
+- use plain, simple, everyday engineering language: the common phrase engineers actually say over rare compact phrasing, in grammatically complete sentences. When explicitly asked to use bullets or ordered lists and structure legitimately helps the reader, prefer nested bullets (any depth is fine) over dense lines in a flat structure
 
-## DOCUMENTATION
+Don't hesitate to use values in .env to get needed API keys and other secrets, as long as you never add them to conversation history, commit them, or include them in GitHub issues / PRs
 
-- Keep documentation in sync with code changes
-- Update provider documentation when adding new providers
-- Include code examples for new features
-- Update changelog and release notes
+Python max line length is 120, not 88
 
-## SECURITY CONSIDERATIONS
+Never edit or commit `ruff-strict-budget.json`, `type-discipline-budget.json`, `basedpyright-code-budget.json`, or `test-quality-budget.json` on a PR branch, and don't run `make lint-budget-update` there. A scheduled Devin automation lowers the limits on the default branch in its own PR by exactly what landed since the last ratchet, so concurrent PRs don't fight over the same `"limit"` lines. Keep the hosted automation's target in sync when the repository default changes. If your branch already carries a budget edit, drop it before opening the PR
 
-- Handle API keys securely
-- Validate all inputs, especially for proxy endpoints
-- Consider rate limiting and abuse prevention
-- Follow security best practices for authentication
+`make check` (f.k.a. `make pre-commit`, which still works identically as an alias) saves its complete output to a log file in .git (overwriting previous logs) and prints that path as its first and last output lines. To inspect a run, read or grep that log instead of re-running the multi-minute checks just to see a different slice
 
-## ENTERPRISE FEATURES
+`make check`, `make lint`, `scripts/pre_commit_lint.sh`, and the standalone budget gates (`scripts/ruff_strict_gate.py`, `scripts/type_discipline_gate.py`, `scripts/type_check_gate.py`) each hold one of 2 machine-wide slots, so when other sessions or worktrees on the same box are already running heavy work, yours prints "all N machine-wide slots are busy; queueing" and then stays quiet until a slot frees. Give the command a long timeout and let it wait rather than killing it, retrying it, or assuming it hung. Don't change the # of machine-wide slots or make it unlimited by setting `LITELLM_GATE_SLOTS=0`
 
-- Some features are enterprise-only
-- Check `enterprise/` directory for enterprise-specific code
-- Maintain compatibility between open-source and enterprise versions
+If you're trying to create a new function that relies on untyped stuff, instead of adding more Any's and pushing `reportAny` / `reportExplicitAny` closer to their basedpyright ceilings, just validate it in the caller with Pydantic (a model or `TypeAdapter` that returns the typed thing or raises will do) and then pass the now typed variable in
 
-## COMMON PITFALLS TO AVOID
+If you get an LIT001 fail, refactor the code to follow functional programming best practices rather than introducing mutable data structures. For example, build values in one shot with comprehensions or generators wrapped in `tuple()` / `MappingProxyType()` / `frozenset()` instead of seeding an empty `list`/`dict`/`set` and mutating it over time. Ideally, `# mutable-ok` is never used; reach for it only as a genuine last resort when an immutable rewrite is truly impossible, and always pair it with a real reason
 
-1. **Breaking Changes**: LiteLLM has many users - avoid breaking existing APIs
-2. **Provider Specifics**: Each provider has unique quirks - handle them properly
-3. **Rate Limits**: Respect provider rate limits in tests
-4. **Memory Usage**: Be mindful of memory usage in streaming scenarios
-5. **Dependencies**: Keep dependencies minimal and well-justified
-6. **UI/Backend Contract Mismatch**: When adding a new entity type to the UI, always check whether the backend endpoint accepts a single value or an array. Match the UI control accordingly (single-select vs. multi-select) to avoid silently dropping user selections
-7. **Missing Tests for New Entity Types**: When adding a new entity type (e.g., in `EntityUsage`, `UsageViewSelect`), always add corresponding tests in the existing test files and update any icon/component mocks
-8. **Raw SQL in proxy DB code**: Do not use `execute_raw` or `query_raw` for proxy database access. Use Prisma model methods (e.g. `prisma_client.db.litellm_tooltable.upsert()`, `.find_many()`, `.find_unique()`) so behavior stays consistent with the schema, the client stays mockable in tests, and you avoid the pitfalls of hand-written SQL (parameter ordering, type casting, schema drift)
+Every lint or type suppression must name the exact rule inside brackets and carry a reason comment, e.g. `# pyright: ignore[reportArgumentType]  # stubs lack async overload` or `# noqa: TID251  # <reason>`. `# type: ignore` is banned (LIT009): pyrightconfig.json sets `enableTypeIgnoreComments` to false, so it silently does nothing
 
-8. **Do not hardcode model-specific flags**: Put model-specific capability flags in `model_prices_and_context_window.json` and read them via `get_model_info` (or existing helpers like `supports_reasoning`). This prevents users from needing to upgrade LiteLLM each time a new model supports a feature.
+Commit and push your work when you're done without asking
 
-   **Example of BAD** (hardcoded model checks):
+When referencing or running models (coding, QA'ing, writing docs, writing tests, etc.), use the latest model in that model family unless otherwise specified; treat your training knowledge, memories, configs, and tests as stale, and determine the family's latest with model_prices_and_context_window.json or the web
 
-   ```python
-   @staticmethod
-   def _is_effort_supported_model(model: str) -> bool:
-       """Check if the model supports the output_config.effort parameter..."""
-       model_lower = model.lower()
-       if AnthropicConfig._is_claude_4_6_model(model):
-           return True
-       return any(
-           v in model_lower for v in ("opus-4-5", "opus_4_5", "opus-4.5", "opus_4.5")
-       )
-   ```
+Always pull before starting any work. The checkout or worktree may be sitting on a stale branch
 
-   **Example of GOOD** (config-driven or helper that reads from config):
+If you're an internal contributor, when creating a new PR, the typical flow is to branch off the repository's current default branch and create a branch prefixed with litellm_. Do not create a branch prefixed with claude/ and generally do not have / in your branch names
 
-   ```python
-   if (
-       "claude-3-7-sonnet" in model
-       or AnthropicConfig._is_claude_4_6_model(model)
-       or supports_reasoning(
-           model=model,
-           custom_llm_provider=self.custom_llm_provider,
-       )
-   ):
-       ...
-   ```
+Do not add `Co-Authored-By: Claude` or any Claude attribution to commit messages. Never use a `claude/` prefix or put a `/` in a branch name. Do not add "Generated with Claude Code" (or any similar attribution) to PR descriptions or comments. Do not create a new PR/branch off the existing PR to fix/add something that is related and could've just been committed directly to the existing PR's branch
 
-   Using helpers like `supports_reasoning` (which read from `model_prices_and_context_window.json` / `get_model_info`) allows future model updates to "just work" without code changes.
+When working on a PR, keep the PR description in sync with new commits being made
 
-9. **Never close HTTP/SDK clients on cache eviction**: Do not add `close()`, `aclose()`, or `create_task(close_fn())` inside `LLMClientCache._remove_key()` or any cache eviction path. Evicted clients may still be held by in-flight requests; closing them causes `RuntimeError: Cannot send a request, as the client has been closed.` in production after the cache TTL (1 hour) expires. Connection cleanup is handled at shutdown by `close_litellm_async_clients()`. See PR #22247 for the full incident history.
+All GitHub comments must be human-readable and 15-25 words max
 
-## HELPFUL RESOURCES
+Monkeypatching attributes of a class to do testing is an anti-pattern. Prefer dependency-injecting things into classes. That way, at unit test time, you can pass a mocked dependency in
 
-- Main documentation: https://docs.litellm.ai/ (source: [BerriAI/litellm-docs](https://github.com/BerriAI/litellm-docs))
-- Provider-specific docs: https://docs.litellm.ai/docs/providers/
-- Admin UI for testing proxy features
+Do not put names of customers or customer company names in code, PR descriptions, issue bodies, etc. This means never mention literally any company name. Especially if you're about to say a sentence mentioning that the reason the PR exists was a feature/model/bug fix/etc. requested by a company. That's the indication that you should replace that company name with "the customer". e.g. not "Model request from Acme (Pylon #1234)" but "Model request from a customer (Pylon #1234)". This is because the codebase is public. The only exception is for publicly known providers or vendors such as OpenAI, Anthropic, AWS Bedrock, etc. only IF we're adding support for that provider/vendor in general and NOT if that PR or whatnot was a request by one of them, and they're actually one of our customers.
 
-## WHEN IN DOUBT
+CI supply-chain safety: Never pipe a remote script into a shell (`curl ... | bash`, `wget ... | sh`); download the artifact to a file, verify its SHA-256 checksum, then install. Pin every external tool to a specific version with a full URL (not `latest` or `stable`). Verify checksums for all downloaded binaries, using the provider's official `.sha256` / `.sha256sum` sidecar when available. These rules apply to every download in CI
 
-- Follow existing patterns in the codebase
-- Check similar provider implementations
-- Ensure comprehensive test coverage
-- Update documentation appropriately
-- Consider backward compatibility impact
+Prisma migrations apply synchronously at proxy boot, before it serves traffic, so a migration must only change schema, never rewrite rows. No `UPDATE`, `DELETE` or `MERGE`, and no `INSERT ... SELECT`: on a spend-log-sized table any of those is minutes of downtime plus a doubled heap that plain autovacuum won't give back. `tests/code_coverage_tests/check_migrations_no_data_rewrites.py` enforces this. When a rewrite is genuinely bounded and has to ship inside the migration, mark the statement `-- data-migration-ok: <what bounds it>`
 
-## Cursor Cloud specific instructions
+Follow these coding conventions for new/updated code (a three-line fix in a legacy file shouldn't trigger huge drive-by refactors):
 
-### Environment
+- Composition over inheritance
+- Never-nester: early returns over deep nesting
+- Don't throw; model failures as values (One function (e.g., raise_public) maps error union to existing public exception contracts via exhaustive match + assert_never)
+- No mutation; don't reassign variables, global or local. Instead of mutable lists and dicts, prefer tuples, frozen dataclasses (with slots=True), `MappingProxyType`, etc.
+  - Annotate every variable with `: Final` (LIT010). Unpacking and walrus targets cannot carry the annotation, so they are implicitly final. Don't rebind them. Never rebind or mutate function parameters (LIT011); `self`/`cls` attribute stores are the exception. If rebinding or in-place mutation is truly unavoidable, suppress with `# rebind-ok: <reason>`
+  - Qualify every TypedDict field with `ReadOnly[...]` (LIT012), which nests freely with `Required` / `NotRequired` / `Annotated` in any order. If making the key writable is truly unavoidable, suppress with `# writable-ok: <reason>`
+  - Comprehensions take at most one `for` clause and one `if` clause (LIT014); split stacked clauses into a helper generator, a named intermediate, or a plain loop. Suppress with `# comprehension-ok: <reason>` only when unavoidable
+- Use dependency injection
+- Fully typed; no `Any` or coarse types like `dict[str, Any]` or just `dict`. Every function parameter must be strongly typed
+- Use tagged unions + match
+- No monster files or god objects
+- No file sprawl: deliberate file and folder structure
+- Standard over hand-rolled: use the official SDK or a library where one exists; where none does, follow industry standards instead of inventing local conventions
+- API-fragmentation-aware: when logic must branch on which API surface produced or consumes data (e.g. chat completions vs Anthropic Messages vs Responses API shapes), proactively look for an existing shared helper (e.g. `litellm_core_utils/prompt_templates/factory.py`) before writing per-surface parsing in the new module; if none exists, add one there instead of duplicating the same format-detection logic in every new guardrail/integration
 
-- uv is installed in `~/.local/bin`; the update script ensures it is on `PATH`.
-- Python 3.12, Node 22 are pre-installed.
-- The project virtual environment lives under `.venv/`.
+Follow conventional commits for commit names and PR titles
 
-### Running the proxy server
+## Think Before Coding
 
-Create a minimal config file and start the proxy:
+**Don't assume. Don't hide confusion. Surface tradeoffs**
 
-```yaml
-# config.yaml
-model_list:
-  - model_name: fake-openai-endpoint
-    litellm_params:
-      model: openai/fake-model
-      api_key: fake-key
-      api_base: https://fake-api.example.com
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask
+- If multiple interpretations exist, present them. Don't pick silently
+- If a simpler approach exists, say so. Push back when warranted
+- If something is unclear, stop. Name what's confusing. Ask
 
-general_settings:
-  master_key: sk-1234
+## Simplicity First
 
-litellm_settings:
-  drop_params: True
-  telemetry: False
-```
+**Minimum code that solves the problem. Nothing speculative**
 
-```bash
-uv run litellm --config config.yaml --port 4000
-```
+- No features beyond what was asked
+- No abstractions for single-use code
+- No "flexibility" or "configurability" that wasn't requested
+- No error handling for impossible scenarios
+- If you write 200 lines and it could be 50, rewrite it
 
-The proxy takes ~15-20 seconds to fully start (it runs Prisma migrations on boot). Wait for `/health` to return before sending requests. Without a PostgreSQL `DATABASE_URL`, the proxy connects to a default Neon dev database embedded in the `litellm-proxy-extras` package.
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify
 
-### Running tests
-
-See `CLAUDE.md` and the `Makefile` for standard commands. Key notes:
-
-- `uv sync --group proxy-dev --extra proxy` installs the Prisma and proxy-side test dependencies used by the standard local workflow.
-- The `--timeout` pytest flag is NOT available; don't pass it.
-- Unit tests: `uv run pytest tests/test_litellm/ -x -vv -n 4`
-- **Before committing, always run `uv run black .` to format your code.** Black formatting is enforced in CI.
-- If `uv sync` fails because the lockfile is outdated, run `uv lock` and retry.
-
-### Lint
-
-```bash
-cd litellm && uv run ruff check .
-```
-
-Ruff is the primary fast linter. For the full lint suite (including mypy, black, circular imports), run `make lint` per `CLAUDE.md`.
-
-### UI Dashboard development
-
-- The UI is at `ui/litellm-dashboard/`. Run `npm run dev` from that directory for the Next.js dev server on port 3000.
-- The proxy at port 4000 serves a **pre-built** static UI from `litellm/proxy/_experimental/out/`. After making UI code changes, you must run `npm run build` in the dashboard directory and copy the output: `cp -r ui/litellm-dashboard/out/* litellm/proxy/_experimental/out/` for the proxy to serve the updated UI.
-- SVGs used as provider logos (loaded via `<img>` tags) must NOT use `fill="currentColor"` — replace with an explicit color like `#000000` or use the `-color` variant from lobehub icons, since CSS color inheritance does not work inside `<img>` elements.
-- Provider logos live in `ui/litellm-dashboard/public/assets/logos/` (source) and `litellm/proxy/_experimental/out/assets/logos/` (pre-built). Both locations must have the file for it to work in dev and proxy-served modes.
-- UI Vitest tests: `cd ui/litellm-dashboard && npx vitest run`
+Before requesting maintainer review, verify the current PR tip passes required CI and code coverage, meets Greptile confidence of at least 4/5, and has acceptable Veria and Bugbot reviews. Inspect warnings and findings, fix actionable issues, and rerun the affected checks and reviewers after changes. Record evidence for any false positive or unavailable review; never treat a pending or missing bot result as a pass. Do not lower coverage thresholds or lint budgets to satisfy a check

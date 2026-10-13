@@ -1,0 +1,36 @@
+model_list:
+  - model_name: perplexity/pplx-decider-v1-27b
+    litellm_params:
+      model: perplexity/pplx-decider-v1-27b
+      api_base: http://127.0.0.1:8191
+      api_key: synthetic-perplexity-key
+  - model_name: typesafe/jev-1.13.0
+    litellm_params:
+      model: typesafe/jev-1.13.0
+      api_base: http://127.0.0.1:8191
+      api_key: synthetic-typesafe-key
+  - model_name: openrouter/typesafe/jev-1.13
+    litellm_params:
+      model: openrouter/typesafe/jev-1.13
+      api_base: http://127.0.0.1:8191
+      api_key: synthetic-openrouter-key
+  - model_name: cloudflare/@cf/cloudflare/clef
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clef
+      api_base: http://127.0.0.1:8191
+      api_key: synthetic-cloudflare-key
+  - model_name: strands_decider/strands-decider-2B-hobson-v19
+    litellm_params:
+      model: strands_decider/strands-decider-2B-hobson-v19
+      api_base: http://127.0.0.1:8191
+  - model_name: hosted_vllm/Qwen/Qwen3-0.6B
+    litellm_params:
+      model: hosted_vllm/Qwen/Qwen3-0.6B
+      api_base: http://127.0.0.1:8191
+  - model_name: azure_ai/decision-1
+    litellm_params:
+      model: azure_ai/decision-1
+      api_base: http://127.0.0.1:8191
+      api_key: synthetic-azure-ai-key
+    model_info:
+      base_model: azure_ai/Microsoft-Decision-1

@@ -49,8 +49,12 @@ jobs:
             type=ref,event=tag
             type=sha
 
+  # Upstream's Dockerfile (since ~v1.9x) builds litellm as a maturin wheel with a
+  # Rust extension, compiles pgbouncer and the admin UI. Each arch builds on a
+  # native runner: compiling the Rust crate under QEMU takes hours.
   build-amd64:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     needs: meta
     permissions:
       contents: read
@@ -86,11 +90,12 @@ jobs:
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: ${{ needs.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=obol-litellm-amd64
+          cache-to: type=gha,mode=max,scope=obol-litellm-amd64
 
   build-arm64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
     needs: meta
     permissions:
       contents: read
@@ -99,15 +104,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4.2.4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
-        with:
-          platforms: arm64
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
-        with:
-          install: true
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -133,8 +131,8 @@ jobs:
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: ${{ needs.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=obol-litellm-arm64
+          cache-to: type=gha,mode=max,scope=obol-litellm-arm64
 
   manifest:
     runs-on: ubuntu-latest
