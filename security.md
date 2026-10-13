@@ -1,13 +1,26 @@
 # Data Privacy and Security
 
+## Security Announcements
+
+LiteLLM maintains a security announcements mailing list that is open to anyone. Subscribers receive advance notice, typically one to two days, before we release a fix for a particularly severe vulnerability or for any vulnerability exploitable by an unauthenticated attacker. This notice is provided on a best-effort basis
+
+To subscribe, visit [https://berriai.github.io/security-announce-signup/](https://berriai.github.io/security-announce-signup/)
 
 ## Security Vulnerability Reporting Guidelines
+
+> [!WARNING]
+> Reports that do not include a video demonstrating the exploit will be closed without review. See [Reproduction Video Requirement](#reproduction-video-requirement) below.
 
 We value the security community's role in protecting our systems and users. To report a security vulnerability:
 
 - File a private vulnerability report on GitHub: [Report a vulnerability](https://github.com/BerriAI/litellm/security/advisories/new)
 - Include steps to reproduce the issue
+- Include a video or screen recording demonstrating the full exploit against a live LiteLLM instance, from initial access through to impact. A terminal recording (for example asciinema) is fine for CLI-only exploits.
 - Provide any relevant additional information
+
+### Reproduction Video Requirement
+
+A video demonstrating the exploit is required for every report. AI tools have made it easy to produce plausible-sounding vulnerability reports that do not reproduce in practice, and triaging them takes time away from real issues. Reports submitted without a working reproduction video will be closed without review. If you add a video to a closed report, we will reopen and triage it.
 
 ### Vulnerability Categories
 
@@ -38,7 +51,7 @@ We offer bounties for responsibly disclosed vulnerabilities based on severity:
 | **Medium** | N/A | P2 authenticated privilege escalation |
 | **Low** | N/A | Minor information disclosure, low-impact misconfigurations |
 
-To qualify for a bounty, reports must include clear reproduction steps and must not involve systems or accounts you do not own. We review all submissions promptly and will follow up within 5 business days.
+To qualify for a bounty, reports must include clear reproduction steps, a reproduction video as described above, and must not involve systems or accounts you do not own. We review all submissions promptly and will follow up within 5 business days.
 
 ### Known Non-Issues
 

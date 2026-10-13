@@ -7,14 +7,11 @@
 
 import asyncio
 import importlib
-import os
-import sys
+from collections.abc import Generator
+from typing import Final
 
 import pytest
 
-sys.path.insert(
-    0, os.path.abspath("../..")
-)  # Adds the parent directory to the system path
 
 import litellm  # noqa: E402
 
@@ -25,26 +22,30 @@ from tests._vcr_conftest_common import (  # noqa: E402,F401
     emit_cassette_cache_session_banner,
     emit_vcr_classification_summary,
     emit_vcr_diagnostic_log,
+    guard_vcr_patch_points,
     install_live_call_probe,
     record_vcr_outcome,
     register_persister_if_enabled,
     reset_vcr_diag_dir,
     vcr_config_dict,
 )
+from tests.fake_openai_endpoint import ensure_fake_openai_endpoint  # noqa: E402
+
+
+@pytest.fixture(scope="session", autouse=True)
+def fake_openai_endpoint():
+    ensure_fake_openai_endpoint()
+    yield
+
 
 # Per-item respx detection (``apply_vcr_auto_marker_to_items``) handles
-# the vast majority of respx-vs-vcrpy conflicts automatically. The only
-# entry below is the persister's own unit-test file, which exercises
-# ``save_cassette`` / ``load_cassette`` against fakeredis and must not
-# itself run under a live cassette context.
-_VCR_AUTO_MARKER_SKIP_FILES = frozenset({"test_vcr_redis_persister.py"})
-
-# Tests that observe live cross-call provider state (e.g. prompt-cache
-# warm-up between two consecutive calls); replay can't reproduce that state.
-_VCR_INCOMPATIBLE_NODEID_SUFFIXES = (
-    "::test_prompt_caching",
-    "TestBedrockInvokeNovaJson::test_json_response_pydantic_obj",
-    "::test_bedrock_converse__streaming_passthrough",
+# the vast majority of respx-vs-vcrpy conflicts automatically. The entries
+# below are the persister's, the WebSocket VCR's, and the cassette patch-leak
+# guard's own unit-test files, which exercise ``save_cassette`` /
+# ``load_cassette`` against fakeredis or enter cassettes themselves and must
+# not run under a live cassette context.
+_VCR_AUTO_MARKER_SKIP_FILES = frozenset(
+    {"test_vcr_redis_persister.py", "test_ws_vcr.py", "test_vcr_leak_guard.py"}
 )
 
 
@@ -72,6 +73,17 @@ def _vcr_outcome_gate(request, vcr):
     install_live_call_probe(request, vcr)
     yield
     record_vcr_outcome(request, vcr)
+
+
+@pytest.hookimpl(wrapper=True, trylast=True)
+def pytest_runtest_teardown(item: pytest.Item) -> Generator[None, object, object]:
+    try:
+        result: Final = yield
+    except BaseException:
+        guard_vcr_patch_points(item, teardown_failed=True)
+        raise
+    guard_vcr_patch_points(item, teardown_failed=False)
+    return result
 
 
 def pytest_configure(config):
@@ -119,7 +131,6 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):  # Add event_loop as a dependency
-    sys.path.insert(0, os.path.abspath("../.."))
 
     import litellm
 
@@ -170,7 +181,6 @@ def pytest_collection_modifyitems(config, items):
     apply_vcr_auto_marker_to_items(
         items,
         skip_files=_VCR_AUTO_MARKER_SKIP_FILES,
-        skip_nodeid_suffixes=_VCR_INCOMPATIBLE_NODEID_SUFFIXES,
     )
 
     custom_logger_tests = [
